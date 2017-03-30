@@ -1,5 +1,6 @@
 import datetime
 import time
+from multiprocessing import Pool
 import random
 import requests
 from bs4 import BeautifulSoup
@@ -12,7 +13,6 @@ class download:
     timeOut = 2
     tryTimes = 3  # ip 失败后试３次
     limitTimes = 3
-    proxyUrl = "http://dynamic.goubanjia.com/dynamic/get/dda6296ac277e375c32d49682c8553c0.html"
     agents = [
             "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
             "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
@@ -39,24 +39,11 @@ class download:
         self.database = MongoClient()['meizitu']
         self.dbCollection = self.database['pics']
         self.dbIP = self.database['ips']
-        self.proxy = ProxyIp.ProxyIP(self.proxyUrl)
+        self.proxy = ProxyIp.ProxyIP()
         self.currentIP = self.proxy.getIPs()
 
-    def getAll(self, url):
-        allHtml = self.makeRequest(url)
-        allSoup = BeautifulSoup(allHtml.text, 'lxml')
-        allLink = allSoup.select('.archives a')
-        for a in allLink:
-            title = a.string
-            if self.dbCollection.find_one({"主题":title}):
-                print("主题已存在")
-            else:
-                href = a['href']
-                path = self.makeAlbumDir(title)
-                self.makeAlbum(href, title, path)
-
     def makeAlbumDir(self, title):
-        path = os.path.join(self.rootDir, str(title).replace('?','_'))
+        path = os.path.join(self.rootDir, str(title).replace('?', '_'))
         self.makeDir(path)
         return path
 
@@ -121,10 +108,11 @@ class download:
     def makeRequest(self, url):
         try:
             proxy = {'http': self.currentIP.strip()}
-            response = requests.get(url, headers=self.randomAgent(), timeout=self.timeOut, proxies=proxy)
+            print(proxy)
+            response = requests.get(url, headers=self.randomAgent(), proxies=proxy)
+            print(response.text)
             return response
         except:
-            print('换IP')
             self.currentIP = self.proxy.getIPs()
             self.dbIP.save({
                 'IP': self.currentIP,
@@ -133,5 +121,27 @@ class download:
             self.tryTimes = 0
             return self.makeRequest(url)
 
-app = download()
-app.getAll('http://www.mzitu.com/all')
+def getSubject(a):
+    title = a.string
+    if app.dbCollection.find_one({"主题":title}):
+        print("主题已存在")
+    else:
+        href = a['href']
+        path = app.makeAlbumDir(title)
+        app.makeAlbum(href, title, path)
+
+def fuck():
+    print('you')
+if __name__ == "__main__":
+    app = download()
+    def getAll(url):
+        allHtml = app.makeRequest(url)
+        allSoup = BeautifulSoup(allHtml.text, 'lxml')
+        allLink = allSoup.select('.archives a')
+        p = Pool()
+        for a in allLink:
+            p.apply_async(getSubject, args=(a,))
+        p.close()
+        p.join()
+    getAll('http://www.mzitu.com/all')
+
