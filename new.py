@@ -36,7 +36,8 @@ class App:
         if not os.path.exists(path):
             print("路径不存在")
             os.mkdir(path)
-        print("路径已存在")
+        else:
+            print("路径已存在")
         os.chdir(path=path)
 
     def getNewIP(self):
