@@ -109,7 +109,7 @@ class download:
         try:
             proxy = {'http': self.currentIP.strip()}
             print(proxy)
-            response = requests.get(url, headers=self.randomAgent(), proxies=proxy)
+            response = requests.get(url, headers=self.randomAgent(), timeout=self.timeOut ,proxies=proxy,)
             print(response.text)
             return response
         except:
@@ -121,27 +121,30 @@ class download:
             self.tryTimes = 0
             return self.makeRequest(url)
 
-def getSubject(a):
-    title = a.string
-    if app.dbCollection.find_one({"主题":title}):
-        print("主题已存在")
-    else:
-        href = a['href']
-        path = app.makeAlbumDir(title)
-        app.makeAlbum(href, title, path)
-
-def fuck():
-    print('you')
-if __name__ == "__main__":
+def getNavPage(href):
     app = download()
-    def getAll(url):
-        allHtml = app.makeRequest(url)
-        allSoup = BeautifulSoup(allHtml.text, 'lxml')
-        allLink = allSoup.select('.archives a')
-        p = Pool()
-        for a in allLink:
-            p.apply_async(getSubject, args=(a,))
-        p.close()
-        p.join()
-    getAll('http://www.mzitu.com/all')
+    pageHtml = app.makeRequest(href)
+    soup = BeautifulSoup(pageHtml.text, 3)
+    subjectLinks = soup.select('.postlist li span:first-child a')
+    for subjectLink in subjectLinks:
+        title = subjectLink.text
+        href = subjectLink['src']
+        print(title, href)
+
+def fuck(href):
+    print(href)
+
+if __name__ == "__main__":
+
+    #app = download()
+    #allHtml = app.makeRequest('http://www.mzitu.com')
+    #allSoup = BeautifulSoup(allHtml.text, 'lxml')
+    #lastLink = allSoup.select('.postlist a')[-2]
+    p = Pool(2)
+    for navLinkNumber in range(1, 3):
+        print(navLinkNumber)
+        navHref = "http://www.mzitu.com/page"+str(navLinkNumber)
+        p.apply_async(getNavPage, args=(navHref,))
+    p.close()
+    p.join()
 
